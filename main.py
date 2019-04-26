@@ -5,13 +5,22 @@ import requests
 import json
 
 
-def get_post(num):
-    texts = []
-    req = 'https://api.vk.com/method/wall.get'
-    response = requests.get(
-        'https://api.vk.com/method/wall.get?owner_id=-112510789&count=100&access_token=b346d612b346d612b346d61288b32cfdcebb346b346d612eff9ea604f19d70c363f4e13&v=5.95')
-    text = response.json()['response']['items'][num]['text']
-    print(text)
+def get_post(num, group=1):
+    if group == 1:
+        req = 'https://api.vk.com/method/wall.get'
+        response = requests.get(
+            'https://api.vk.com/method/wall.get?owner_id=-112510789&count=20&access_token=b346d612b346d612b346d61288b32cfdcebb346b346d612eff9ea604f19d70c363f4e13&v=5.95')
+        text = response.json()['response']['items'][num]['text']
+    if group == 2:
+        req = 'https://api.vk.com/method/wall.get'
+        response = requests.get(
+            'https://api.vk.com/method/wall.get?owner_id=-29534144&count=20&access_token=b346d612b346d612b346d61288b32cfdcebb346b346d612eff9ea604f19d70c363f4e13&v=5.95')
+        text = response.json()['response']['items'][num]['text']
+    if group == 0:
+        req = 'https://api.vk.com/method/wall.get'
+        response = requests.get(
+            'https://api.vk.com/method/wall.get?owner_id=-145037861&count=20&access_token=b346d612b346d612b346d61288b32cfdcebb346b346d612eff9ea604f19d70c363f4e13&v=5.95')
+        text = response.json()['response']['items'][num]['text']
     return text
 
 
@@ -21,11 +30,27 @@ logging.basicConfig(level=logging.INFO)
 
 sessionStorage = {}
 
+text = 'Привет! Здесь ты можешь увидеть актуальные новости .' \
+       ' Все новости, которые ты видишь мы берем из порталов MASH ' \
+       ', Сталингулаг ,Лентач. Ссылки на источники новостей : https://vk.com/mash \n' \
+       'https://vk.com/oldlentach \n ' \
+       'https://vk.com/stalingulag'
+
+help = 'И снова здравствуй! Ниже указан список всех команд. \n' \
+       'Для получения новости используются даннные команды:\n' \
+       'Хочу получить новости; \n' \
+       'Актуальные новости; \n' \
+       'Новость; \n' \
+       'Хочу новости.\n' \
+       'Для получения последующих новостей используется команда "ещё".\n' \
+       'Для того , чтобы поменять источник новостей используются следнующие команды: \n' \
+       'Сменить источник новостей;\n' \
+       'Другой источник.\n' \
+       'Удачи!'
+what_i_can = 'Я могу отсылать интересные новости)'
+
 
 @app.route('/', methods=['POST'])
-# Функция получает тело запроса и возвращает ответ.
-# Внутри функции доступен request.json - это JSON,
-# который отправила нам Алиса в запросе POST
 def main():
     logging.info('Request: %r', request.json)
 
@@ -56,11 +81,12 @@ def handle_dialog(req, res):
 
     if req['session']['new']:
         sessionStorage[user_id] = {
-            'number': 1
+            'number': 1,
+            'news_parser': 1
         }
         # Заполняем текст ответа
-        res['response'][
-            'text'] = 'Привет! Здесь ты можешь увидеть актуальные новости . Все новости, которые ты видишь мы берем из портала MASH вот ссылка https://vk.com/mash'
+        res['response']['text'] = text
+        res['response']['buttons'] = get_suggests(user_id)
         return
 
     if req['request']['original_utterance'].lower() in [
@@ -72,26 +98,62 @@ def handle_dialog(req, res):
     ]:
         print(sessionStorage[user_id]['number'])
         if get_post(sessionStorage[user_id]['number']) != '':
-            res['response']['text'] = get_post(sessionStorage[user_id]['number'])
+            res['response']['text'] = get_post(sessionStorage[user_id]['number'],
+                                               sessionStorage[user_id]['news_parser'] % 3)
             sessionStorage[user_id]['number'] += 1
+            res['response']['buttons'] = get_suggests(user_id)
             print(res['response']['text'])
             return
         else:
-            res['response']['text'] = get_post(sessionStorage[user_id]['number']+1)
+            res['response']['text'] = get_post(sessionStorage[user_id]['number'] + 1,
+                                               sessionStorage[user_id]['news_parser'] % 3)
             sessionStorage[user_id]['number'] += 2
+            res['response']['buttons'] = get_suggests(user_id)
             print(res['response']['text'])
             return
-    elif req['request']['original_utterance'] == 'ещё' and sessionStorage[user_id]['number'] >= 2:
+    elif req['request']['original_utterance'].lower() == 'ещё' and sessionStorage[user_id]['number'] >= 2:
         if get_post(sessionStorage[user_id]['number']) != '':
-            res['response']['text'] = get_post(sessionStorage[user_id]['number'])
+            res['response']['text'] = get_post(sessionStorage[user_id]['number'],
+                                               sessionStorage[user_id]['news_parser'] % 3)
             sessionStorage[user_id]['number'] += 1
+            res['response']['buttons'] = get_suggests(user_id)
             print(res['response']['text'])
             return
         else:
-            res['response']['text'] = get_post(sessionStorage[user_id]['number'] + 1)
+            res['response']['text'] = get_post(sessionStorage[user_id]['number'] + 1,
+                                               sessionStorage[user_id]['news_parser'] % 3)
             sessionStorage[user_id]['number'] += 2
+            res['response']['buttons'] = get_suggests(user_id)
             print(res['response']['text'])
             return
+    elif req['request']['original_utterance'].lower() in ['сменить источник новостей', 'другой источник', 'сменить новости']:
+        sessionStorage[user_id]['news_parser'] += 1
+        sessionStorage[user_id]['number'] = 1
+        res['response']['buttons'] = get_suggests(user_id)
+        res['response']['text'] = 'Теперь новости берутся из другого источника'
+        return
+    elif req['request']['original_utterance'].lower() in ['помощь']:
+        res['response']['buttons'] = get_suggests(user_id)
+        res['response']['text'] = help
+        return
+    elif req['request']['original_utterance'].lower() in ['что я могу']:
+        res['response']['buttons'] = get_suggests(user_id)
+        res['response']['text'] = what_i_can
+        return
 
-    # Если нет, то убеждаем его купить слона!
+        # Если нет, то убеждаем его купить слона!
     res['response']['text'] = 'я не понимаю данной команды'
+
+
+def get_suggests(user_id):
+    if sessionStorage[user_id]['number'] >= 2:
+        buttons = [{'title': 'Ещё', 'hide': False},
+                   {'title': 'Сменить новости', 'hide': False},
+                   {'title': 'Помощь', 'hide': False},
+                   {'title': 'Что я могу', 'hide': False}]
+    else:
+        buttons = [{'title': 'Хочу новость', 'hide': False},
+                   {'title': 'Сменить источник новостей', 'hide': False},
+                   {'title': 'Помощь', 'hide': False},
+                   {'title': 'Что я могу', 'hide': False}]
+    return buttons
